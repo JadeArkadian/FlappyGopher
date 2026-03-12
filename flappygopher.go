@@ -26,17 +26,23 @@ const GameName string = "Flappy Bird"
 const WindowWidth int = 576
 const WindowHeight int = 1024
 const TitleFontSize float32 = 90.0
+const BirdWidth float32 = 68.0
+const BirdHeight float32 = 48.0
 
 const RessourcesDir string = "res"
 const FontsDir string = RessourcesDir + "/" + "fonts"
 const FlappyTtfFont = FontsDir + "/" + "flappy.ttf"
 const ImgDir string = RessourcesDir + "/" + "imgs"
 const BackgroundsDir string = ImgDir + "/" + "backgrounds"
+const RedBird string = ImgDir + "/redbird"
+const BlueBird string = ImgDir + "/bluebird"
+const YellowBird string = ImgDir + "/yellowbird"
 
 var ColorWhite sdl.Color = sdl.Color{R: 255, G: 255, B: 255, A: 255}
 
 var (
 	chosenBackground string = chooseBackground()
+	chosenBird string = chooseBird()
 	gameState GameState = StartScreen
 )
 
@@ -92,6 +98,7 @@ func initialize() error {
 			switch event.Type {
 				// press anykey to start the game
 				case sdl.EVENT_KEY_DOWN, sdl.EVENT_MOUSE_BUTTON_DOWN:
+					if gameState != StartScreen { break}
 					log.Println("Start the game!")
 					gameState = Playing
 				// Quit the game when the user clicks the close button
@@ -100,6 +107,7 @@ func initialize() error {
 			}
 		}
 
+		// Draw logic
 		switch gameState {
 			case StartScreen:
 				titleScene.DrawScene(renderer)
@@ -127,11 +135,26 @@ func chooseBackground() string {
 	}
 }
 
+func chooseBird() string {
+	random := int(math.Floor(float64(time.Now().Unix()))) % 3
+	
+	switch random {
+	case 0:
+		return RedBird
+	case 1:
+		return BlueBird 
+	case 2:
+		return YellowBird
+	default:
+		return RedBird
+	}
+}
+
 
 func main() {
-
 	var err error = initialize()
 	if err != nil {
+		log.Printf("Error: %v", err)
 		os.Exit(2)
 	}
 

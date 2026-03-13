@@ -42,6 +42,7 @@ func NewTitleScene(renderer *sdl.Renderer, backgroundPath string) (*TitleScene, 
 func (scene *TitleScene) DrawScene(renderer *sdl.Renderer) {
 	renderer.Clear()
 	scene.drawBackground(renderer)
+	scene.drawTitleTextShadow(renderer)
 	scene.drawTitleText(renderer)
 	renderer.Present()
 }
@@ -61,6 +62,13 @@ func (scene *TitleScene) drawBackground(renderer *sdl.Renderer) {
 func (scene *TitleScene) drawTitleText(renderer *sdl.Renderer) {
 	// Define destination rect to render at original size (no scaling)
 	dst := sdl.FRect{X: 40, Y: 250, W: float32(scene.textSurface.W), H: float32(scene.textSurface.H)}
-	renderer.SetDrawColor(255, 255, 255, 255)
+	scene.textTexture.SetColorMod(255,255,255)
+	renderer.RenderTexture(scene.textTexture, nil, &dst)
+}
+
+func (scene *TitleScene) drawTitleTextShadow(renderer *sdl.Renderer) {
+	// Define destination rect to render at original size (no scaling)
+	dst := sdl.FRect{X: 45, Y: 255, W: float32(scene.textSurface.W), H: float32(scene.textSurface.H)}
+	scene.textTexture.SetColorMod(0,0,0)
 	renderer.RenderTexture(scene.textTexture, nil, &dst)
 }

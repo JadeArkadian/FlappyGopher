@@ -34,16 +34,21 @@ const BirdMaxFallSpeed float32 = 14.0
 const BirdFlapStrength float32 = -6.0
 const FloorHeight float32 = 112.0
 const PipesSpeed float32 = 2.0
+const ParallaxSpeed float32 = 0.5
 
 const RessourcesDir string = "res"
 const FontsDir string = RessourcesDir + "/" + "fonts"
 const FlappyTtfFont = FontsDir + "/" + "flappy.ttf"
 const ImgDir string = RessourcesDir + "/" + "imgs"
+const PipesDir string = ImgDir + "/" + "pipes"
+const PipeGreenPath string = PipesDir + "/" + "pipegreen.png"
+const PipeRedPath string = PipesDir + "/" + "pipered.png"
 const BackgroundsDir string = ImgDir + "/" + "backgrounds"
 const BaseImgPath string = BackgroundsDir + "/" + "base.png"
 const RedBird string = ImgDir + "/redbird"
 const BlueBird string = ImgDir + "/bluebird"
 const YellowBird string = ImgDir + "/yellowbird"
+
 
 var ColorWhite sdl.Color = sdl.Color{R: 255, G: 255, B: 255, A: 255}
 

@@ -35,7 +35,7 @@ const BirdFlapStrength float32 = -6.0
 const FloorHeight float32 = 112.0
 const PipeWidth float32 = 104.0
 const PipeHeight float32 = 640.0
-const PipesSpeed float32 = 2.0
+const PipesSpeed float32 = 3.0
 const ParallaxSpeed float32 = 0.5
 
 const RessourcesDir string = "res"
@@ -58,6 +58,8 @@ var (
 	chosenBackground string    = chooseBackground()
 	chosenBird       string    = chooseBird()
 	gameState        GameState = StartScreen
+	deltaTime        float32
+	lastTime         uint64
 )
 
 func initialize() error {
@@ -104,7 +106,18 @@ func initialize() error {
 	}
 	defer scene.Destroy()
 
+	lastTime = sdl.Ticks()
+
 	sdl.RunLoop(func() error {
+		currentTime := sdl.Ticks()
+		if lastTime != 0 {
+			deltaTime = float32(currentTime - lastTime) / 1000.0
+		}
+		if deltaTime == 0 {
+			deltaTime = 1.0 / 60.0
+		}
+		lastTime = currentTime
+
 		var event sdl.Event
 
 		for sdl.PollEvent(&event) {

@@ -49,7 +49,7 @@ func (pipe *Pipe) ResetPipe() error {
 }
 
 func (pipe *Pipe) UpdatePipe() {
-	pipe.pipeX -= PipesSpeed
+	pipe.pipeX -= PipesSpeed * (deltaTime * 60)
 	if pipe.pipeX <= -float32(WindowWidth) {
 		pipe.pipeX = float32(WindowWidth)
 		pipe.ResetPipe()

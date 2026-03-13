@@ -25,7 +25,7 @@ func NewBase(renderer *sdl.Renderer, x, y, rotation float32) (*Base, error) {
 }
 
 func (base *Base) UpdateBase() {
-	base.x -= PipesSpeed
+	base.x -= PipesSpeed * (deltaTime * 60)
 	if base.x <= -float32(WindowWidth) {
 		base.x = 0
 	}

@@ -59,8 +59,8 @@ func (fish *Fish) UpdateFish() {
 		return
 	}
 
-	fish.fishY += fish.fishSpeed
-	fish.fishSpeed += BirdGravity
+	fish.fishY += fish.fishSpeed * (deltaTime * 60)
+	fish.fishSpeed += BirdGravity * (deltaTime * 60)
 	if fish.fishSpeed > BirdMaxFallSpeed {
 		fish.fishSpeed = BirdMaxFallSpeed
 	}

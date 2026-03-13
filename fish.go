@@ -29,7 +29,14 @@ func NewFish(renderer *sdl.Renderer, backgroundPath string) (*Fish, error) {
 	return &Fish{fishTexture: fishTextures, fishX: 100, fishY: 200, isDead: false}, nil
 }
 
+func (fish *Fish) ColliderBounds() sdl.FRect {
+	return sdl.FRect{X: fish.fishX, Y: fish.fishY, W: BirdWidth, H: BirdHeight}
+}
+
 func (fish *Fish) Flap() {
+	if fish.isDead {
+		return
+	}
 	log.Println("Flap!")
 	fish.fishSpeed = BirdFlapStrength
 }

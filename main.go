@@ -33,6 +33,8 @@ const BirdGravity float32 = 0.25
 const BirdMaxFallSpeed float32 = 14.0
 const BirdFlapStrength float32 = -6.0
 const FloorHeight float32 = 112.0
+const PipeWidth float32 = 104.0
+const PipeHeight float32 = 640.0
 const PipesSpeed float32 = 2.0
 const ParallaxSpeed float32 = 0.5
 

@@ -10,6 +10,7 @@ import (
 )
 
 type Scene struct {
+	pipes []*Pipe
 	backgroundTexture *sdl.Texture
 	floor *Base
 	ceiling *Base
@@ -33,12 +34,21 @@ func NewScene(renderer *sdl.Renderer, backgroundPath string) (*Scene, error) {
 		return nil, fmt.Errorf("Error while creating floor  %v", err)
 	}
 
+	pipes := []*Pipe{}
+	for i := 0; i < 3; i++ {
+		pipe, err := NewPipe(renderer, float32(WindowWidth)+float32(i*400))
+		if err != nil {
+			return nil, fmt.Errorf("Error while creating pipe  %v", err)
+		}
+		pipes = append(pipes, pipe)
+	}
+
 	ceiling, err := NewBase(renderer, 0, 0, 180)
 	if err != nil {
 		return nil, fmt.Errorf("Error while creating ceiling  %v", err)
 	}
 
-	return &Scene{backgroundTexture: bgTexture, fish: fish, floor: floor, ceiling: ceiling}, nil
+	return &Scene{backgroundTexture: bgTexture, fish: fish, floor: floor, ceiling: ceiling, pipes: pipes}, nil
 }
 
 func (scene *Scene) UpdateScene() {
@@ -56,7 +66,21 @@ func (scene *Scene) UpdateScene() {
 		scene.fish.UpdateFish()
 		scene.floor.UpdateBase()
 		scene.ceiling.UpdateBase()
+		for _, pipe := range scene.pipes {
+			pipe.UpdatePipe()
+			if scene.CheckCollisions(scene.fish.ColliderBounds(), pipe.ColliderBounds()) {
+				log.Println("Collision detected!")
+				scene.fish.isDead = true
+			}
+		}
 	}
+}
+
+func (scene *Scene) CheckCollisions(fishCollider sdl.FRect, pipeCollider sdl.FRect) bool {
+	    return fishCollider.X < pipeCollider.X+pipeCollider.W &&
+        fishCollider.X+fishCollider.W > pipeCollider.X &&
+        fishCollider.Y < pipeCollider.Y+pipeCollider.H &&
+        fishCollider.Y+fishCollider.H > pipeCollider.Y
 }
 
 func (scene *Scene) ResetScene() {
@@ -66,6 +90,9 @@ func (scene *Scene) ResetScene() {
 func (scene *Scene) DrawScene(renderer *sdl.Renderer) {
 	renderer.Clear()
 	scene.DrawBackground(renderer)
+	for _, pipe := range scene.pipes {
+		pipe.DrawPipe(renderer)
+	}
 	scene.DrawCeiling(renderer)
 	scene.DrawFloor(renderer)
 	scene.fish.DrawFish(renderer)

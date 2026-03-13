@@ -8,63 +8,67 @@ import (
 	"github.com/Zyko0/go-sdl3/sdl"
 )
 
+// Pipe represents a single pipe obstacle.
 type Pipe struct {
-	pipeTexture *sdl.Texture
-	pipeX       float32
-	pipeY       float32
-	rotation    float64
+	texture  *sdl.Texture
+	x        float32
+	y        float32
+	rotation float64
 }
 
+// NewPipe creates a Pipe at horizontal position x.
 func NewPipe(renderer *sdl.Renderer, x float32) (*Pipe, error) {
-	var pipeTextures *sdl.Texture
-
-	pipeTexture, err := img.LoadTexture(renderer, PipeGreenPath)
+	texture, err := img.LoadTexture(renderer, PipeGreenPath)
 	if err != nil {
-		return nil, fmt.Errorf("Error while loading pipe image  %v", err)
+		return nil, fmt.Errorf("error loading pipe image: %w", err)
 	}
-	pipeTextures = pipeTexture
 
-	pipe := &Pipe{pipeTexture: pipeTextures, pipeX: x}
-	pipe.ResetPipe()
-
-	return pipe, nil
+	p := &Pipe{texture: texture, x: x}
+	p.reset()
+	return p, nil
 }
 
+// ColliderBounds returns the axis-aligned bounding box of the pipe.
 func (pipe *Pipe) ColliderBounds() sdl.FRect {
-	return sdl.FRect{X: pipe.pipeX, Y: pipe.pipeY, W: PipeWidth, H: PipeHeight}
+	return sdl.FRect{X: pipe.x, Y: pipe.y, W: PipeWidth, H: PipeHeight}
 }
 
-func (pipe *Pipe) ResetPipe() error {
-	// Randomly choose between 180 and 0 degrees for the pipe rotation
+// reset randomizes the pipe's orientation and vertical position.
+func (pipe *Pipe) reset() {
+	// Randomly place pipe at top (180°) or bottom (0°)
 	pipe.rotation = 180 * float64(rand.Intn(2))
 
-	// Randomly choose a height for the pipe between 150 and 350 pixels from the top if it's a ceiling pipe, or from the bottom if it's a floor pipe
+	height := randomPipeOffset()
 	if pipe.rotation == 180 {
-		// Ceiling pipe
-		pipe.pipeY = choosePipeHeight()*100.0 - 150.0
+		// Ceiling pipe: offset from the top
+		pipe.y = height*100.0 - 150.0
 	} else {
-		pipe.pipeY = float32(WindowHeight) - FloorHeight - choosePipeHeight()*100.0 - 150.0
-	}
-	return nil
-}
-
-func (pipe *Pipe) UpdatePipe() {
-	pipe.pipeX -= PipesSpeed * (deltaTime * 60)
-	if pipe.pipeX <= -float32(WindowWidth) {
-		pipe.pipeX = float32(WindowWidth)
-		pipe.ResetPipe()
+		// Floor pipe: offset from the bottom
+		pipe.y = float32(WindowHeight) - FloorHeight - height*100.0 - 150.0
 	}
 }
 
-func (pipe *Pipe) DrawPipe(renderer *sdl.Renderer) {
-	dst := sdl.FRect{X: pipe.pipeX, Y: pipe.pipeY, W: float32(PipeWidth), H: float32(PipeHeight)}
-	renderer.RenderTextureRotated(pipe.pipeTexture, nil, &dst, pipe.rotation, nil, sdl.FLIP_NONE)
+// Update moves the pipe leftward and recycles it when off-screen.
+func (pipe *Pipe) Update(deltaTime float32) {
+	pipe.x -= PipesSpeed * (deltaTime * 60)
+	if pipe.x <= -float32(WindowWidth) {
+		pipe.x = float32(WindowWidth)
+		pipe.reset()
+	}
 }
 
+// Draw renders the pipe with its current rotation.
+func (pipe *Pipe) Draw(renderer *sdl.Renderer) {
+	dst := sdl.FRect{X: pipe.x, Y: pipe.y, W: PipeWidth, H: PipeHeight}
+	renderer.RenderTextureRotated(pipe.texture, nil, &dst, pipe.rotation, nil, sdl.FLIP_NONE)
+}
+
+// Destroy releases the pipe texture.
 func (pipe *Pipe) Destroy() {
-	pipe.pipeTexture.Destroy()
+	pipe.texture.Destroy()
 }
 
-func choosePipeHeight() float32 {
+// randomPipeOffset returns a random float32 in [0, 2] to vary pipe heights.
+func randomPipeOffset() float32 {
 	return float32(rand.Intn(3))
 }

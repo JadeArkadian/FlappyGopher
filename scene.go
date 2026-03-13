@@ -3,119 +3,141 @@ package main
 import (
 	"fmt"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/Zyko0/go-sdl3/img"
 	"github.com/Zyko0/go-sdl3/sdl"
 )
 
+// Scene holds all game objects for the main gameplay phase.
 type Scene struct {
-	pipes []*Pipe
+	mu                sync.Mutex
+	pipes             []*Pipe
 	backgroundTexture *sdl.Texture
-	floor *Base
-	ceiling *Base
-	fish *Fish
-	isGameOver bool
+	floor             *Base
+	ceiling           *Base
+	fish              *Fish
+	isGameOver        bool
 }
 
-func NewScene(renderer *sdl.Renderer, backgroundPath string) (*Scene, error) {
+// NewScene creates the gameplay scene with background, fish, floor, ceiling and pipes.
+func NewScene(renderer *sdl.Renderer, backgroundPath, birdPath string) (*Scene, error) {
 	bgTexture, err := img.LoadTexture(renderer, backgroundPath)
 	if err != nil {
-		return nil, fmt.Errorf("Error while loading background image  %v", err)
+		return nil, fmt.Errorf("error loading background image: %w", err)
 	}
 
-	fish, err := NewFish(renderer, "")
+	fish, err := NewFish(renderer, birdPath)
 	if err != nil {
-		return nil, fmt.Errorf("Error while creating fish  %v", err)
+		return nil, fmt.Errorf("error creating fish: %w", err)
 	}
 
 	floor, err := NewBase(renderer, 0, float32(WindowHeight)-FloorHeight, 0)
 	if err != nil {
-		return nil, fmt.Errorf("Error while creating floor  %v", err)
-	}
-
-	pipes := []*Pipe{}
-	for i := 0; i < 3; i++ {
-		pipe, err := NewPipe(renderer, float32(WindowWidth)+float32(i*400))
-		if err != nil {
-			return nil, fmt.Errorf("Error while creating pipe  %v", err)
-		}
-		pipes = append(pipes, pipe)
+		return nil, fmt.Errorf("error creating floor: %w", err)
 	}
 
 	ceiling, err := NewBase(renderer, 0, 0, 180)
 	if err != nil {
-		return nil, fmt.Errorf("Error while creating ceiling  %v", err)
+		return nil, fmt.Errorf("error creating ceiling: %w", err)
 	}
 
-	return &Scene{backgroundTexture: bgTexture, fish: fish, floor: floor, ceiling: ceiling, pipes: pipes}, nil
+	var pipes []*Pipe
+	for i := 0; i < 3; i++ {
+		pipe, err := NewPipe(renderer, float32(WindowWidth)+float32(i*400))
+		if err != nil {
+			return nil, fmt.Errorf("error creating pipe %d: %w", i, err)
+		}
+		pipes = append(pipes, pipe)
+	}
+
+	return &Scene{
+		backgroundTexture: bgTexture,
+		fish:              fish,
+		floor:             floor,
+		ceiling:           ceiling,
+		pipes:             pipes,
+	}, nil
 }
 
-func (scene *Scene) UpdateScene() {
-	if scene.fish.isDead && !scene.isGameOver {
-		scene.isGameOver = true	
-		log.Println("Game Over!")
+// UpdateScene advances the game simulation by one frame.
+func (scene *Scene) UpdateScene(deltaTime float32) {
+	scene.mu.Lock()
+	gameOver := scene.isGameOver
+	scene.mu.Unlock()
 
+	if scene.fish.isDead && !gameOver {
+		scene.mu.Lock()
+		scene.isGameOver = true
+		scene.mu.Unlock()
+
+		log.Println("Game Over!")
 		go func() {
 			time.Sleep(3 * time.Second)
-			log.Println("Reset scene")
-			scene.ResetScene()
+			log.Println("Resetting scene")
+			scene.reset()
+			scene.mu.Lock()
 			scene.isGameOver = false
+			scene.mu.Unlock()
 		}()
-	} else if !scene.isGameOver{
-		scene.fish.UpdateFish()
-		scene.floor.UpdateBase()
-		scene.ceiling.UpdateBase()
-		for _, pipe := range scene.pipes {
-			pipe.UpdatePipe()
-			if scene.CheckCollisions(scene.fish.ColliderBounds(), pipe.ColliderBounds()) {
-				log.Println("Collision detected!")
-				scene.fish.isDead = true
-			}
+		return
+	}
+
+	if gameOver {
+		return
+	}
+
+	scene.fish.Update(deltaTime)
+	scene.floor.Update(deltaTime)
+	scene.ceiling.Update(deltaTime)
+	for _, pipe := range scene.pipes {
+		pipe.Update(deltaTime)
+		if scene.checkCollision(scene.fish.ColliderBounds(), pipe.ColliderBounds()) {
+			log.Println("Collision detected!")
+			scene.fish.isDead = true
 		}
 	}
 }
 
-func (scene *Scene) CheckCollisions(fishCollider sdl.FRect, pipeCollider sdl.FRect) bool {
-	    return fishCollider.X < pipeCollider.X+pipeCollider.W &&
-        fishCollider.X+fishCollider.W > pipeCollider.X &&
-        fishCollider.Y < pipeCollider.Y+pipeCollider.H &&
-        fishCollider.Y+fishCollider.H > pipeCollider.Y
+// checkCollision returns true if two rectangles overlap (AABB).
+func (scene *Scene) checkCollision(a, b sdl.FRect) bool {
+	return a.X < b.X+b.W &&
+		a.X+a.W > b.X &&
+		a.Y < b.Y+b.H &&
+		a.Y+a.H > b.Y
 }
 
-func (scene *Scene) ResetScene() {
-	scene.fish.ResetFish()
+// reset restores the scene to its initial state.
+func (scene *Scene) reset() {
+	scene.fish.Reset()
 }
 
+// DrawScene renders the complete scene for the current frame.
 func (scene *Scene) DrawScene(renderer *sdl.Renderer) {
 	renderer.Clear()
-	scene.DrawBackground(renderer)
+	renderer.SetDrawColor(255, 255, 255, 255)
+
+	dst := sdl.FRect{X: 0, Y: 0, W: float32(WindowWidth), H: float32(WindowHeight)}
+	renderer.RenderTexture(scene.backgroundTexture, nil, &dst)
+
 	for _, pipe := range scene.pipes {
-		pipe.DrawPipe(renderer)
+		pipe.Draw(renderer)
 	}
-	scene.DrawCeiling(renderer)
-	scene.DrawFloor(renderer)
-	scene.fish.DrawFish(renderer)
+	scene.ceiling.Draw(renderer)
+	scene.floor.Draw(renderer)
+	scene.fish.Draw(renderer)
+
 	renderer.Present()
 }
 
-func (scene *Scene) DrawBackground(renderer *sdl.Renderer) {
-	dst := sdl.FRect{X: 0, Y: 0, W: float32(WindowWidth), H: float32(WindowHeight)}
-	renderer.SetDrawColor(255, 255, 255, 255)
-	renderer.RenderTexture(scene.backgroundTexture, nil, &dst)
-}
-
-func (scene *Scene) DrawFloor(renderer *sdl.Renderer) {
-	scene.floor.DrawBase(renderer)
-}
-
-func (scene *Scene) DrawCeiling(renderer *sdl.Renderer) {
-	scene.ceiling.DrawBase(renderer)
-}
-
+// Destroy releases all resources held by the scene.
 func (scene *Scene) Destroy() {
 	scene.backgroundTexture.Destroy()
 	scene.fish.Destroy()
 	scene.floor.Destroy()
 	scene.ceiling.Destroy()
+	for _, pipe := range scene.pipes {
+		pipe.Destroy()
+	}
 }

@@ -3,9 +3,8 @@ package main
 import (
 	"fmt"
 	"log"
-	"math"
+	"math/rand"
 	"os"
-	"time"
 
 	"github.com/Zyko0/go-sdl3/bin/binimg"
 	"github.com/Zyko0/go-sdl3/bin/binsdl"
@@ -15,6 +14,7 @@ import (
 	"github.com/Zyko0/go-sdl3/ttf"
 )
 
+// GameState represents the current phase of the game.
 type GameState int
 
 const (
@@ -23,46 +23,30 @@ const (
 	GameOver
 )
 
-const GameName string = "Flappy Bird"
-const WindowWidth int = 576
-const WindowHeight int = 1024
-const TitleFontSize float32 = 90.0
-const BirdWidth float32 = 68.0
-const BirdHeight float32 = 48.0
-const BirdGravity float32 = 0.25
-const BirdMaxFallSpeed float32 = 14.0
-const BirdFlapStrength float32 = -6.0
-const FloorHeight float32 = 112.0
-const PipeWidth float32 = 104.0
-const PipeHeight float32 = 640.0
-const PipesSpeed float32 = 3.0
-const ParallaxSpeed float32 = 0.5
+// Game holds all mutable state that was previously in global variables.
+type Game struct {
+	state     GameState
+	deltaTime float32
+	lastTime  uint64
+}
 
-const RessourcesDir string = "res"
-const FontsDir string = RessourcesDir + "/" + "fonts"
-const FlappyTtfFont = FontsDir + "/" + "flappy.ttf"
-const ImgDir string = RessourcesDir + "/" + "imgs"
-const PipesDir string = ImgDir + "/" + "pipes"
-const PipeGreenPath string = PipesDir + "/" + "pipegreen.png"
-const PipeRedPath string = PipesDir + "/" + "pipered.png"
-const BackgroundsDir string = ImgDir + "/" + "backgrounds"
-const BaseImgPath string = BackgroundsDir + "/" + "base.png"
-const RedBird string = ImgDir + "/redbird"
-const BlueBird string = ImgDir + "/bluebird"
-const YellowBird string = ImgDir + "/yellowbird"
+// ColorWhite is a convenience color constant for white.
+var ColorWhite = sdl.Color{R: 255, G: 255, B: 255, A: 255}
 
+func chooseBackground() string {
+	backgrounds := []string{
+		BackgroundsDir + "/background-day.png",
+		BackgroundsDir + "/background-night.png",
+	}
+	return backgrounds[rand.Intn(len(backgrounds))]
+}
 
-var ColorWhite sdl.Color = sdl.Color{R: 255, G: 255, B: 255, A: 255}
+func chooseBird() string {
+	birds := []string{RedBird, BlueBird, YellowBird}
+	return birds[rand.Intn(len(birds))]
+}
 
-var (
-	chosenBackground string    = chooseBackground()
-	chosenBird       string    = chooseBird()
-	gameState        GameState = StartScreen
-	deltaTime        float32
-	lastTime         uint64
-)
-
-func initialize() error {
+func (game *Game) run() error {
 	defer binsdl.Load().Unload()
 	defer binttf.Load().Unload()
 	defer binimg.Load().Unload()
@@ -72,85 +56,74 @@ func initialize() error {
 	defer ttf.CloseLibrary()
 	defer img.CloseLibrary()
 
-	// Init SDL
-	var err error = sdl.Init(sdl.INIT_VIDEO | sdl.INIT_AUDIO | sdl.INIT_EVENTS | sdl.INIT_GAMEPAD)
-	if err != nil {
-		return fmt.Errorf("Error while loading SDL Library %v", err)
+	// Initialize SDL
+	if err := sdl.Init(sdl.INIT_VIDEO | sdl.INIT_AUDIO | sdl.INIT_EVENTS | sdl.INIT_GAMEPAD); err != nil {
+		return fmt.Errorf("error initializing SDL: %w", err)
 	}
 
-	// Init Window
+	// Create window and renderer
 	window, renderer, err := sdl.CreateWindowAndRenderer(GameName, WindowWidth, WindowHeight, sdl.WINDOW_ALWAYS_ON_TOP)
 	if err != nil {
-		return fmt.Errorf("Error while intializing  %v", err)
+		return fmt.Errorf("error creating window and renderer: %w", err)
 	}
-
 	defer renderer.Destroy()
 	defer window.Destroy()
 
-	// Init TTF Module
-	err = ttf.Init()
-	if err != nil {
-		return fmt.Errorf("Error while intializing TTF module  %v", err)
+	// Initialize TTF module
+	if err := ttf.Init(); err != nil {
+		return fmt.Errorf("error initializing TTF module: %w", err)
 	}
 
-	// Init scenes
-	titleScene, err := NewTitleScene(renderer, chosenBackground)
+	// Choose random background and bird for this session
+	background := chooseBackground()
+	bird := chooseBird()
+
+	// Initialize scenes
+	titleScene, err := NewTitleScene(renderer, background)
 	if err != nil {
-		return fmt.Errorf("Error while creating title scene  %v", err)
+		return fmt.Errorf("error creating title scene: %w", err)
 	}
 	defer titleScene.Destroy()
 
-	scene, err := NewScene(renderer, chosenBackground)
+	scene, err := NewScene(renderer, background, bird)
 	if err != nil {
-		return fmt.Errorf("Error while creating scene  %v", err)
+		return fmt.Errorf("error creating game scene: %w", err)
 	}
 	defer scene.Destroy()
 
-	lastTime = sdl.Ticks()
+	game.lastTime = sdl.Ticks()
 
 	sdl.RunLoop(func() error {
 		currentTime := sdl.Ticks()
-		if lastTime != 0 {
-			deltaTime = float32(currentTime - lastTime) / 1000.0
+		if game.lastTime != 0 {
+			game.deltaTime = float32(currentTime-game.lastTime) / 1000.0
 		}
-		if deltaTime == 0 {
-			deltaTime = 1.0 / 60.0
+		if game.deltaTime == 0 {
+			game.deltaTime = 1.0 / 60.0
 		}
-		lastTime = currentTime
+		game.lastTime = currentTime
 
 		var event sdl.Event
-
 		for sdl.PollEvent(&event) {
 			switch event.Type {
-			// press anykey to start the game
 			case sdl.EVENT_KEY_DOWN, sdl.EVENT_MOUSE_BUTTON_DOWN:
-				if gameState == Playing {
+				if game.state == Playing {
 					scene.fish.HandleInput(event)
 					break
 				}
-
-				log.Println("Start the game!")
-				gameState = Playing
-			// Quit the game when the user clicks the close button
+				log.Println("Starting game")
+				game.state = Playing
 			case sdl.EVENT_QUIT:
 				return sdl.EndLoop
 			}
 		}
 
-		// Draw logic
-		switch gameState {
+		switch game.state {
 		case StartScreen:
 			titleScene.DrawScene(renderer)
 		case Playing:
 			scene.DrawScene(renderer)
-		case GameOver:
-		}
-
-		// Update logic
-		switch gameState {
-		case StartScreen:
-		case Playing:
-			scene.UpdateScene()
+			scene.UpdateScene(game.deltaTime)
 		case GameOver:
 		}
 
@@ -160,40 +133,10 @@ func initialize() error {
 	return nil
 }
 
-func chooseBackground() string {
-	random := int(math.Floor(float64(time.Now().Unix()))) % 2
-
-	switch random {
-	case 0:
-		return BackgroundsDir + "/" + "background-day.png"
-	case 1:
-		return BackgroundsDir + "/" + "background-night.png"
-	default:
-		return BackgroundsDir + "/" + "background-day.png"
-	}
-}
-
-func chooseBird() string {
-	random := int(math.Floor(float64(time.Now().Unix()))) % 3
-
-	switch random {
-	case 0:
-		return RedBird
-	case 1:
-		return BlueBird
-	case 2:
-		return YellowBird
-	default:
-		return RedBird
-	}
-}
-
 func main() {
-	var err error = initialize()
-	if err != nil {
-		log.Printf("Error: %v", err)
+	game := &Game{}
+	if err := game.run(); err != nil {
+		log.Printf("Fatal error: %v", err)
 		os.Exit(2)
 	}
-
-	log.Println("Hello world!")
 }

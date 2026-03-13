@@ -8,87 +8,106 @@ import (
 	"github.com/Zyko0/go-sdl3/sdl"
 )
 
+// Fish represents the player-controlled bird character.
 type Fish struct {
-	fishTexture []*sdl.Texture
-	fishX       float32
-	fishY       float32
-	fishSpeed   float32
-	isDead      bool
+	textures []*sdl.Texture
+	x        float32
+	y        float32
+	speed    float32
+	isDead   bool
 }
 
-func NewFish(renderer *sdl.Renderer, backgroundPath string) (*Fish, error) {
-	var fishTextures []*sdl.Texture
+// NewFish creates a Fish loading sprites from birdPath.
+func NewFish(renderer *sdl.Renderer, birdPath string) (*Fish, error) {
+	var textures []*sdl.Texture
 	for i := 0; i < 3; i++ {
-		fishTexture, err := img.LoadTexture(renderer, chooseBird()+"/"+fmt.Sprintf("bird-%02d.png", i))
+		texture, err := img.LoadTexture(renderer, fmt.Sprintf("%s/bird-%02d.png", birdPath, i))
 		if err != nil {
-			return nil, fmt.Errorf("Error while loading fish image  %v", err)
+			return nil, fmt.Errorf("error loading bird sprite %d: %w", i, err)
 		}
-		fishTextures = append(fishTextures, fishTexture)
+		textures = append(textures, texture)
 	}
 
-	return &Fish{fishTexture: fishTextures, fishX: 100, fishY: 200, isDead: false}, nil
+	return &Fish{
+		textures: textures,
+		x:        BirdInitialX,
+		y:        BirdInitialY,
+	}, nil
 }
 
+// ColliderBounds returns the axis-aligned bounding box of the fish.
 func (fish *Fish) ColliderBounds() sdl.FRect {
-	return sdl.FRect{X: fish.fishX, Y: fish.fishY, W: BirdWidth, H: BirdHeight}
+	return sdl.FRect{X: fish.x, Y: fish.y, W: BirdWidth, H: BirdHeight}
 }
 
+// Flap makes the fish jump upward.
 func (fish *Fish) Flap() {
 	if fish.isDead {
 		return
 	}
 	log.Println("Flap!")
-	fish.fishSpeed = BirdFlapStrength
+	fish.speed = BirdFlapStrength
 }
 
+// HandleInput processes SDL input events for the fish.
 func (fish *Fish) HandleInput(event sdl.Event) {
-	if event.Type == sdl.EVENT_MOUSE_BUTTON_DOWN {
+	switch event.Type {
+	case sdl.EVENT_MOUSE_BUTTON_DOWN:
 		fish.Flap()
+	case sdl.EVENT_KEY_DOWN:
+		key := event.KeyboardEvent()
+		if key.Scancode == sdl.SCANCODE_SPACE {
+			fish.Flap()
+		}
 	}
 }
 
-func (fish *Fish) ResetFish() {
-	fish.fishX = 100
-	fish.fishY = 200
-	fish.fishSpeed = 0
+// Reset restores the fish to its initial state.
+func (fish *Fish) Reset() {
+	fish.x = BirdInitialX
+	fish.y = BirdInitialY
+	fish.speed = 0
 	fish.isDead = false
 }
 
-func (fish *Fish) UpdateFish() {
+// Update applies gravity and movement to the fish.
+func (fish *Fish) Update(deltaTime float32) {
 	if fish.isDead {
 		return
 	}
 
-	fish.fishY += fish.fishSpeed * (deltaTime * 60)
-	fish.fishSpeed += BirdGravity * (deltaTime * 60)
-	if fish.fishSpeed > BirdMaxFallSpeed {
-		fish.fishSpeed = BirdMaxFallSpeed
+	fish.y += fish.speed * (deltaTime * 60)
+	fish.speed += BirdGravity * (deltaTime * 60)
+	if fish.speed > BirdMaxFallSpeed {
+		fish.speed = BirdMaxFallSpeed
 	}
 
-	// Check if the fish hits the ground
-	if fish.fishY > float32(WindowHeight)- FloorHeight - BirdHeight {
-		fish.fishY = float32(WindowHeight) - FloorHeight - BirdHeight
+	// Floor collision
+	if fish.y > float32(WindowHeight)-FloorHeight-BirdHeight {
+		fish.y = float32(WindowHeight) - FloorHeight - BirdHeight
 		fish.isDead = true
 	}
 
-	// Check if the fish hits the ceiling
-	if fish.fishY < FloorHeight {
-		fish.fishY = FloorHeight
+	// Ceiling collision
+	if fish.y < FloorHeight {
+		fish.y = FloorHeight
 		fish.isDead = true
 	}
 }
 
-func (fish *Fish) DrawFish(renderer *sdl.Renderer) {
+// Draw renders the current animation frame of the fish.
+func (fish *Fish) Draw(renderer *sdl.Renderer) {
 	if fish.isDead {
 		return
 	}
-	frame := int(sdl.Ticks()/100) % len(fish.fishTexture)
-	dst := sdl.FRect{X: fish.fishX, Y: fish.fishY, W: BirdWidth, H: BirdHeight}
-	renderer.RenderTexture(fish.fishTexture[frame], nil, &dst)
+	frame := int(sdl.Ticks()/100) % len(fish.textures)
+	dst := sdl.FRect{X: fish.x, Y: fish.y, W: BirdWidth, H: BirdHeight}
+	renderer.RenderTexture(fish.textures[frame], nil, &dst)
 }
 
+// Destroy releases all loaded textures.
 func (fish *Fish) Destroy() {
-	for i := 0; i < len(fish.fishTexture); i++ {
-		defer fish.fishTexture[i].Destroy()
+	for _, t := range fish.textures {
+		t.Destroy()
 	}
 }

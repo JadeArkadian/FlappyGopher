@@ -110,6 +110,9 @@ func (scene *Scene) checkCollision(a, b sdl.FRect) bool {
 
 // reset restores the scene to its initial state.
 func (scene *Scene) reset() {
+	for i := 0; i < 3; i++ {
+		scene.pipes[i].x = float32(WindowWidth) + float32(i*400)
+	}
 	scene.fish.Reset()
 }
 

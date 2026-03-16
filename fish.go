@@ -3,18 +3,23 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/Zyko0/go-sdl3/img"
 	"github.com/Zyko0/go-sdl3/sdl"
+	"github.com/faiface/beep"
+	"github.com/faiface/beep/speaker"
+	"github.com/faiface/beep/wav"
 )
 
 // Fish represents the player-controlled bird character.
 type Fish struct {
-	textures []*sdl.Texture
-	x        float32
-	y        float32
-	speed    float32
-	isDead   bool
+	textures  []*sdl.Texture
+	x         float32
+	y         float32
+	speed     float32
+	isDead    bool
+	flapSound beep.StreamSeeker
 }
 
 // NewFish creates a Fish loading sprites from birdPath.
@@ -28,10 +33,32 @@ func NewFish(renderer *sdl.Renderer, birdPath string) (*Fish, error) {
 		textures = append(textures, texture)
 	}
 
+	f, err := os.Open(FlapSfxPath)
+	if err != nil {
+		return nil, fmt.Errorf("error opening sound file: %w", err)
+	}
+	defer f.Close()
+
+	s, format, err := wav.Decode(f)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding sound: %w", err)
+	}
+	streamer := beep.Streamer(s)
+
+	// Resample if necessary
+	if format.SampleRate != beep.SampleRate(44100) {
+		streamer = beep.Resample(4, format.SampleRate, beep.SampleRate(44100), streamer)
+	}
+
+	// Create a buffer to make it seekable
+	buffer := beep.NewBuffer(format)
+	buffer.Append(streamer)
+
 	return &Fish{
-		textures: textures,
-		x:        BirdInitialX,
-		y:        BirdInitialY,
+		textures:  textures,
+		x:         BirdInitialX,
+		y:         BirdInitialY,
+		flapSound: buffer.Streamer(0, buffer.Len()),
 	}, nil
 }
 
@@ -47,6 +74,10 @@ func (fish *Fish) Flap() {
 	}
 	log.Println("Flap!")
 	fish.speed = BirdFlapStrength
+
+	// Play flap sound
+	fish.flapSound.Seek(0)
+	speaker.Play(fish.flapSound)
 }
 
 // HandleInput processes SDL input events for the fish.

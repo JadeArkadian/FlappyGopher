@@ -12,6 +12,8 @@ import (
 	"github.com/Zyko0/go-sdl3/img"
 	"github.com/Zyko0/go-sdl3/sdl"
 	"github.com/Zyko0/go-sdl3/ttf"
+	"github.com/faiface/beep"
+	"github.com/faiface/beep/speaker"
 )
 
 // GameState represents the current phase of the game.
@@ -57,9 +59,12 @@ func (game *Game) run() error {
 	defer img.CloseLibrary()
 
 	// Initialize SDL
-	if err := sdl.Init(sdl.INIT_VIDEO | sdl.INIT_AUDIO | sdl.INIT_EVENTS | sdl.INIT_GAMEPAD); err != nil {
+	if err := sdl.Init(sdl.INIT_VIDEO | sdl.INIT_EVENTS | sdl.INIT_GAMEPAD); err != nil {
 		return fmt.Errorf("error initializing SDL: %w", err)
 	}
+
+	// Initialize speaker
+	speaker.Init(beep.SampleRate(44100), 1024)
 
 	// Create window and renderer
 	window, renderer, err := sdl.CreateWindowAndRenderer(GameName, WindowWidth, WindowHeight, sdl.WINDOW_ALWAYS_ON_TOP)

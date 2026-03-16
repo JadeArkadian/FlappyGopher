@@ -3,11 +3,15 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
 	"sync"
 	"time"
 
 	"github.com/Zyko0/go-sdl3/img"
 	"github.com/Zyko0/go-sdl3/sdl"
+	"github.com/faiface/beep"
+	"github.com/faiface/beep/speaker"
+	"github.com/faiface/beep/wav"
 )
 
 // Scene holds all game objects for the main gameplay phase.
@@ -19,6 +23,7 @@ type Scene struct {
 	ceiling           *Base
 	fish              *Fish
 	isGameOver        bool
+	deathSound        beep.StreamSeeker
 }
 
 // NewScene creates the gameplay scene with background, fish, floor, ceiling and pipes.
@@ -52,12 +57,34 @@ func NewScene(renderer *sdl.Renderer, backgroundPath, birdPath string) (*Scene, 
 		pipes = append(pipes, pipe)
 	}
 
+	f, err := os.Open(DeathSfxPath)
+	if err != nil {
+		return nil, fmt.Errorf("error opening sound file: %w", err)
+	}
+	defer f.Close()
+
+	s, format, err := wav.Decode(f)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding sound: %w", err)
+	}
+	streamer := beep.Streamer(s)
+
+	// Resample if necessary
+	if format.SampleRate != beep.SampleRate(44100) {
+		streamer = beep.Resample(4, format.SampleRate, beep.SampleRate(44100), streamer)
+	}
+
+	// Create a buffer to make it seekable
+	buffer := beep.NewBuffer(format)
+	buffer.Append(streamer)
+
 	return &Scene{
 		backgroundTexture: bgTexture,
 		fish:              fish,
 		floor:             floor,
 		ceiling:           ceiling,
 		pipes:             pipes,
+		deathSound: buffer.Streamer(0, buffer.Len()),
 	}, nil
 }
 
@@ -74,6 +101,8 @@ func (scene *Scene) UpdateScene(deltaTime float32) {
 
 		log.Println("Game Over!")
 		go func() {
+			scene.deathSound.Seek(0)
+			speaker.Play(scene.deathSound)
 			time.Sleep(3 * time.Second)
 			log.Println("Resetting scene")
 			scene.reset()

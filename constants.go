@@ -40,6 +40,9 @@ const (
 const (
 	ResourcesDir   string = "res"
 	FontsDir       string = ResourcesDir + "/fonts"
+	SfxDir         string = ResourcesDir + "/sfx"
+	FlapSfxPath    string = SfxDir + "/smb_kick.wav"
+	DeathSfxPath   string = SfxDir + "/smb_mariodie.wav"
 	FlappyTtfFont  string = FontsDir + "/flappy.ttf"
 	ImgDir         string = ResourcesDir + "/imgs"
 	PipesDir       string = ImgDir + "/pipes"
